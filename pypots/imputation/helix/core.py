@@ -47,16 +47,17 @@ class RotaryPositionalEncoding(nn.Module):
 class TimeSeriesEmbedding2D(nn.Module):
     """Embedding layer for 2D time series data [B, T, F]."""
     
-    def __init__(self, n_features, pe_dim=16):
+    def __init__(self, n_features, pe_dim=16, feature_embed_dim=1):
         super().__init__()
         self.n_features = n_features
         self.pe_dim = pe_dim
+        self.feature_embed_dim = feature_embed_dim
         
         # Rotary positional encoding for temporal dimension
         self.temporal_pe = RotaryPositionalEncoding(d_model=pe_dim)
         
-        # Learnable identity embedding for feature dimension (scalar)
-        self.feature_id = nn.Parameter(torch.randn(n_features))
+        # Learnable identity embedding for feature dimension
+        self.feature_id = nn.Parameter(torch.randn(n_features, feature_embed_dim))
     
     def forward(self, X, missing_mask):
         """
@@ -70,7 +71,7 @@ class TimeSeriesEmbedding2D(nn.Module):
         Returns
         -------
         embedded : tensor, shape [B, T, F, embed_dim]
-            Embedded data, embed_dim = 1 + pe_dim + 1 + 1
+            Embedded data, embed_dim = 1 + pe_dim + feature_embed_dim + 1
         """
         B, T, F = X.shape
         device = X.device
@@ -84,9 +85,9 @@ class TimeSeriesEmbedding2D(nn.Module):
         temporal_encoding = temporal_encoding.unsqueeze(0).unsqueeze(2)  # [1, T, 1, pe_dim]
         temporal_encoding = temporal_encoding.expand(B, T, F, self.pe_dim)
         
-        # Feature identity embedding [F] -> [B, T, F, 1]
-        feature_embedding = self.feature_id.unsqueeze(0).unsqueeze(0).unsqueeze(-1)  # [1, 1, F, 1]
-        feature_embedding = feature_embedding.expand(B, T, F, 1)
+        # Feature identity embedding [F, feature_embed_dim] -> [B, T, F, feature_embed_dim]
+        feature_embedding = self.feature_id.unsqueeze(0).unsqueeze(0)  # [1, 1, F, feature_embed_dim]
+        feature_embedding = feature_embedding.expand(B, T, F, self.feature_embed_dim)
         
         # Missing mask [B, T, F, 1]
         mask_feature = missing_mask.unsqueeze(-1)
@@ -95,9 +96,9 @@ class TimeSeriesEmbedding2D(nn.Module):
         embedded = torch.cat([
             data_val,           # [B, T, F, 1]
             temporal_encoding,  # [B, T, F, pe_dim]
-            feature_embedding,  # [B, T, F, 1]
+            feature_embedding,  # [B, T, F, feature_embed_dim]
             mask_feature        # [B, T, F, 1]
-        ], dim=-1)  # [B, T, F, pe_dim + 3]
+        ], dim=-1)  # [B, T, F, pe_dim + feature_embed_dim + 2]
         
         return embedded
 
@@ -201,12 +202,12 @@ class BackboneHELIX(nn.Module):
     HELIX-2D backbone with hybrid parallel and serial cross-dimensional encoding.
     """
     
-    def __init__(self, n_features, pe_dim, d_model, n_heads, n_layers, dropout):
+    def __init__(self, n_features, pe_dim, feature_embed_dim, d_model, n_heads, n_layers, dropout):
         super().__init__()
         
         # Embedding
-        embed_dim = pe_dim + 3  # 1(data) + pe_dim(temporal) + 1(feature_id) + 1(mask)
-        self.embedding = TimeSeriesEmbedding2D(n_features, pe_dim)
+        embed_dim = pe_dim + feature_embed_dim + 2  # 1(data) + pe_dim(temporal) + feature_embed_dim + 1(mask)
+        self.embedding = TimeSeriesEmbedding2D(n_features, pe_dim, feature_embed_dim)
         
         # Projection
         self.projection = FeatureProjection(embed_dim, d_model)
@@ -281,6 +282,7 @@ class _HELIX(ModelCore):
         n_steps: int,
         n_features: int,
         pe_dim: int,
+        feature_embed_dim: int,
         d_model: int,
         n_heads: int,
         n_layers: int,
@@ -306,6 +308,7 @@ class _HELIX(ModelCore):
         self.backbone = BackboneHELIX(
             n_features=n_features,
             pe_dim=pe_dim,
+            feature_embed_dim=feature_embed_dim,
             d_model=d_model,
             n_heads=n_heads,
             n_layers=n_layers,
