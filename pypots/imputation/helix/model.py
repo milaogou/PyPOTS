@@ -203,8 +203,13 @@ class HELIX(BaseNNImputer):
         self.optimizer.init_optimizer(self.model.parameters())
 
         # Set up learning rate scheduler
+        # Access the internal PyTorch optimizer from PyPOTS wrapper
+        torch_optimizer = self.optimizer.__dict__.get('torch_optimizer') or \
+                         self.optimizer.__dict__.get('opt') or \
+                         list(self.optimizer.__dict__.values())[0]
+        
         self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer.optimizer,
+            torch_optimizer,
             mode='min',
             factor=0.5,
             patience=self.lr_decay_patience,
@@ -359,7 +364,10 @@ class HELIX(BaseNNImputer):
                 self.lr_scheduler.step(mean_val_loss)
                 
                 # Get current learning rate
-                current_lr = self.optimizer.optimizer.param_groups[0]['lr']
+                torch_optimizer = self.optimizer.__dict__.get('torch_optimizer') or \
+                                 self.optimizer.__dict__.get('opt') or \
+                                 list(self.optimizer.__dict__.values())[0]
+                current_lr = torch_optimizer.param_groups[0]['lr']
                 
                 if self.verbose:
                     logger.info(
@@ -389,7 +397,10 @@ class HELIX(BaseNNImputer):
                     break
             else:
                 # No validation set
-                current_lr = self.optimizer.optimizer.param_groups[0]['lr']
+                torch_optimizer = self.optimizer.__dict__.get('torch_optimizer') or \
+                                 self.optimizer.__dict__.get('opt') or \
+                                 list(self.optimizer.__dict__.values())[0]
+                current_lr = torch_optimizer.param_groups[0]['lr']
                 
                 if self.verbose:
                     logger.info(
