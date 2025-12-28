@@ -127,7 +127,7 @@ class HELIX(BaseNNImputer):
         epochs: int = 100,
         patience: Optional[int] = None,
         lr: float = 0.001,
-        lr_decay_patience: int = 5,
+        lr_decay_patience: Optional[int] = None,  # 默认改为None表示不启用
         min_lr: float = 1e-6,
         training_loss: Union[Criterion, type] = MAE,
         validation_metric: Union[Criterion, type] = MSE,
@@ -202,20 +202,28 @@ class HELIX(BaseNNImputer):
             assert isinstance(self.optimizer, Optimizer)
         self.optimizer.init_optimizer(self.model.parameters())
 
-        # Set up learning rate scheduler
-        # Access the internal PyTorch optimizer from PyPOTS wrapper
-        torch_optimizer = self.optimizer.__dict__.get('torch_optimizer') or \
-                         self.optimizer.__dict__.get('opt') or \
-                         list(self.optimizer.__dict__.values())[0]
-        
-        self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            torch_optimizer,
-            mode='min',
-            factor=0.5,
-            patience=self.lr_decay_patience,
-            min_lr=self.min_lr,
-            verbose=self.verbose
-        )
+        # Set up learning rate scheduler (only if lr_decay_patience is enabled)
+        self.lr_scheduler = None
+        if self.lr_decay_patience is not None and self.lr_decay_patience > 0:
+            # Access the internal PyTorch optimizer from PyPOTS wrapper
+            torch_optimizer = self.optimizer.__dict__.get('torch_optimizer') or \
+                             self.optimizer.__dict__.get('opt') or \
+                             list(self.optimizer.__dict__.values())[0]
+            
+            self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                torch_optimizer,
+                mode='min',
+                factor=0.5,
+                patience=self.lr_decay_patience,
+                min_lr=self.min_lr,
+                verbose=self.verbose
+            )
+            
+            if self.verbose:
+                logger.info(f"Learning rate scheduler enabled with patience={self.lr_decay_patience}")
+        else:
+            if self.verbose:
+                logger.info("Learning rate scheduler disabled (lr_decay_patience not set)")
 
     def _print_model_configuration(self):
         """Print all model configuration parameters."""
@@ -241,8 +249,11 @@ class HELIX(BaseNNImputer):
             logger.info(f"  - patience: {self.patience}")
             logger.info(f"Optimizer configuration:")
             logger.info(f"  - initial_lr: {self.lr}")
-            logger.info(f"  - lr_decay_patience: {self.lr_decay_patience}")
-            logger.info(f"  - min_lr: {self.min_lr}")
+            if self.lr_decay_patience is not None and self.lr_decay_patience > 0:
+                logger.info(f"  - lr_decay_patience: {self.lr_decay_patience}")
+                logger.info(f"  - min_lr: {self.min_lr}")
+            else:
+                logger.info(f"  - lr_decay: disabled")
             logger.info(f"Other settings:")
             logger.info(f"  - num_workers: {self.num_workers}")
             logger.info(f"  - device: {self.device}")
@@ -360,8 +371,9 @@ class HELIX(BaseNNImputer):
                 
                 mean_val_loss = epoch_val_loss / len(val_loader)
                 
-                # Step the learning rate scheduler
-                self.lr_scheduler.step(mean_val_loss)
+                # Step the learning rate scheduler (if enabled)
+                if self.lr_scheduler is not None:
+                    self.lr_scheduler.step(mean_val_loss)
                 
                 # Get current learning rate
                 torch_optimizer = self.optimizer.__dict__.get('torch_optimizer') or \
