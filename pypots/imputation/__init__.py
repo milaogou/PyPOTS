@@ -35,6 +35,10 @@ from .micn import MICN
 from .tide import TiDE
 from .grud import GRUD
 from .helix import HELIX
+from .helix_norotarype import HELIX_NoRotaryPE
+from .helix_nofeatureembed import HELIX_NoFeatureEmbed
+from .helix_nohybrid import HELIX_NoHybrid
+from .helix_nofusion import HELIX_NoFusion
 from .stemgnn import StemGNN
 from .imputeformer import ImputeFormer
 from .timemixer import TimeMixer
@@ -87,6 +91,10 @@ __all__ = [
     "TiDE",
     "GRUD",
     "HELIX",
+    "HELIX_NoRotaryPE",
+    "HELIX_NoFeatureEmbed",
+    "HELIX_NoHybrid",
+    "HELIX_NoFusion",
     "StemGNN",
     "ImputeFormer",
     "TimeMixer",
