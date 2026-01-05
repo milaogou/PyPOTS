@@ -1,251 +1,86 @@
-# HELIX Model Architecture
-
-## Overall Architecture Flowchart
+# Hybrid Temporal-Feature Encoding Architecture for Time Series Imputation
 
 ```mermaid
-graph TB
-    subgraph Input["Input Layer"]
-        A[Input: X ∈ ℝ^(B×T×F)]
-        B[Missing Mask ∈ ℝ^(B×T×F)]
+flowchart TB
+    subgraph Input["<b>Input</b>"]
+        X["X ∈ ℝ<sup>B×T×F</sup><br/>Time Series Data"]
+        M["M ∈ {0,1}<sup>B×T×F</sup><br/>Missing Mask"]
     end
-    
-    subgraph Embedding["Embedding Module"]
-        C[Data Value]
-        D[Rotary Positional Encoding<br/>Temporal PE ∈ ℝ^(T×pe_dim)]
-        E[Learnable Feature Identity<br/>Feature ID ∈ ℝ^(F×feat_dim)]
-        F[Missing Indicator]
-        G[Concatenate]
-        H[Embedded ∈ ℝ^(B×T×F×embed_dim)]
-    end
-    
-    subgraph Projection["Feature Projection"]
-        I[Linear: embed_dim → d_model]
-        J[X ∈ ℝ^(B×T×F×d_model)]
-    end
-    
-    subgraph Layer1["Layer 1: Hybrid Encoding"]
-        K1[Parallel Encoding]
-        L1[Time Attention]
-        M1[Feature Attention]
-        N1[Serial Cross-Encoding]
-        O1[Time→Feature]
-        P1[Feature→Time]
-        Q1[Intra-layer Fusion<br/>Average 4 outputs]
-    end
-    
-    subgraph Layer2["Layer 2 to N: Hybrid Encoding"]
-        K2[Parallel Encoding]
-        L2[Time Attention]
-        M2[Feature Attention]
-        N2[Serial Cross-Encoding]
-        O2[Time→Feature]
-        P2[Feature→Time]
-        Q2[Intra-layer Fusion]
-    end
-    
-    subgraph Fusion["Global Multi-level Fusion"]
-        R[Collect All Intermediate Outputs]
-        S[Stack & Average All Outputs]
-        T[Layer Normalization]
-    end
-    
-    subgraph Output["Output Module"]
-        U[Linear: d_model → 1]
-        V[Reconstruction ∈ ℝ^(B×T×F)]
-        W[Combine with Observations]
-        X[Final Imputation ∈ ℝ^(B×T×F)]
-    end
-    
-    A --> C
-    A --> D
-    A --> E
-    B --> F
-    C --> G
-    D --> G
-    E --> G
-    F --> G
-    G --> H
-    H --> I
-    I --> J
-    
-    J --> K1
-    K1 --> L1
-    K1 --> M1
-    L1 --> N1
-    M1 --> N1
-    N1 --> O1
-    N1 --> P1
-    O1 --> Q1
-    P1 --> Q1
-    
-    Q1 --> K2
-    K2 --> L2
-    K2 --> M2
-    L2 --> N2
-    M2 --> N2
-    N2 --> O2
-    N2 --> P2
-    O2 --> Q2
-    P2 --> Q2
-    
-    J --> R
-    L1 --> R
-    M1 --> R
-    O1 --> R
-    P1 --> R
-    L2 --> R
-    M2 --> R
-    O2 --> R
-    P2 --> R
-    Q2 --> R
-    
-    R --> S
-    S --> T
-    T --> U
-    U --> V
-    V --> W
-    B --> W
-    A --> W
-    W --> X
-    
-    style Input fill:#e1f5ff
-    style Embedding fill:#fff4e1
-    style Projection fill:#f0e1ff
-    style Layer1 fill:#e1ffe1
-    style Layer2 fill:#e1ffe1
-    style Fusion fill:#ffe1e1
-    style Output fill:#f5e1ff
-```
 
-## Detailed Component Architecture
+    subgraph Embedding["<b>Time Series Embedding Layer</b>"]
+        direction LR
+        V["Value<br/>x<sub>i,j</sub>"]
+        RoPE["Rotary PE<br/>p<sub>t</sub> ∈ ℝ<sup>d<sub>pe</sub></sup>"]
+        FID["Feature ID<br/>f<sub>j</sub> ∈ ℝ<sup>d<sub>f</sub></sup>"]
+        MF["Mask<br/>m<sub>i,j</sub>"]
+    end
 
-```mermaid
-graph LR
-    subgraph Embedding["Embedding Components"]
+    subgraph Concat["<b>Concatenation</b>"]
+        E["E = [x || p<sub>t</sub> || f<sub>j</sub> || m]<br/>E ∈ ℝ<sup>B×T×F×d<sub>e</sub></sup>"]
+    end
+
+    subgraph Proj["<b>Linear Projection</b>"]
+        H0["H<sup>(0)</sup> = W<sub>proj</sub>E<br/>H<sup>(0)</sup> ∈ ℝ<sup>B×T×F×d</sup>"]
+    end
+
+    subgraph Layer["<b>Hybrid Encoding Layer ×L</b>"]
         direction TB
-        E1[1. Data Value<br/>shape: B×T×F×1]
-        E2[2. Temporal PE<br/>Rotary Encoding<br/>shape: B×T×F×pe_dim]
-        E3[3. Feature ID<br/>Learnable Embedding<br/>shape: B×T×F×feat_dim]
-        E4[4. Missing Mask<br/>shape: B×T×F×1]
-        E5[Total: pe_dim+feat_dim+2]
-    end
-    
-    subgraph Attention["Attention Mechanism"]
-        direction TB
-        A1[Multi-head Self-Attention]
-        A2[Feed-Forward Network]
-        A3[Layer Norm + Residual]
-    end
-    
-    subgraph Hybrid["Hybrid Encoding Strategy"]
-        direction TB
-        H1[Phase 1: Parallel]
-        H2[Time Attention || Feature Attention]
-        H3[Phase 2: Serial Cross]
-        H4[Time→Feature & Feature→Time]
-        H5[Fusion: Average 4 Paths]
-    end
-    
-    E1 --> E5
-    E2 --> E5
-    E3 --> E5
-    E4 --> E5
-    
-    A1 --> A3
-    A2 --> A3
-    
-    H1 --> H2
-    H2 --> H3
-    H3 --> H4
-    H4 --> H5
-```
-
-## Training Strategy: Dual Loss Functions
-
-```mermaid
-graph TB
-    subgraph Training["Training Process"]
-        T1[Input X with Missing Values]
-        T2[Forward Pass]
-        T3[Reconstruction Output]
         
-        subgraph Loss["Dual Loss Calculation"]
-            L1[ORT Loss<br/>Observed Reconstruction Task]
-            L2[MIT Loss<br/>Masked Imputation Task]
-            L3[Total Loss = α·ORT + β·MIT]
+        subgraph P1["Phase 1: Parallel Encoding"]
+            direction LR
+            TA["Temporal<br/>Attention<br/>A<sub>T</sub>(H)"]
+            FA["Feature<br/>Attention<br/>A<sub>F</sub>(H)"]
         end
         
-        T4[Backpropagation]
-        T5[Update Parameters]
+        subgraph P2["Phase 2: Cross-Dimensional Serial Encoding"]
+            direction LR
+            TF["A<sub>F</sub>(A<sub>T</sub>(H))<br/>Time→Feature"]
+            FT["A<sub>T</sub>(A<sub>F</sub>(H))<br/>Feature→Time"]
+        end
+        
+        subgraph Fusion["Intra-Layer Fusion"]
+            AVG["H<sup>(l)</sup> = Mean(H<sub>T</sub>, H<sub>F</sub>, H<sub>TF</sub>, H<sub>FT</sub>)"]
+        end
     end
+
+    subgraph Global["<b>Global Multi-Level Fusion</b>"]
+        GF["H̃ = Mean(H<sup>(0)</sup>, H<sup>(1)</sup>, ..., H<sup>(L)</sup>)"]
+        LN["LayerNorm"]
+    end
+
+    subgraph Output["<b>Output Layer</b>"]
+        OP["X̂ = W<sub>out</sub>H̃<br/>X̂ ∈ ℝ<sup>B×T×F</sup>"]
+        Final["X̃ = M ⊙ X + (1-M) ⊙ X̂"]
+    end
+
+    X --> Embedding
+    M --> Embedding
+    V --> E
+    RoPE --> E
+    FID --> E
+    MF --> E
+    E --> H0
+    H0 --> Layer
+    H0 -.->|"skip"| GF
     
-    T1 --> T2
-    T2 --> T3
-    T3 --> L1
-    T3 --> L2
-    L1 --> L3
-    L2 --> L3
-    L3 --> T4
-    T4 --> T5
+    Layer --> P1
+    TA --> P2
+    FA --> P2
+    P2 --> Fusion
+    Fusion -->|"iterate L times"| Layer
+    Fusion -.->|"intermediate outputs"| GF
     
-    style Loss fill:#ffe1e1
-```
+    GF --> LN
+    LN --> OP
+    OP --> Final
 
-## Key Innovations Summary
-
-1. **Hybrid Encoding Architecture**
-   - Parallel encoding on both time and feature dimensions
-   - Serial cross-dimensional encoding (Time→Feature & Feature→Time)
-   - Multi-level fusion of all intermediate representations
-
-2. **Advanced Positional Encoding**
-   - Rotary Positional Encoding for temporal dimension
-   - Learnable identity embeddings for feature dimension
-
-3. **Multi-level Fusion Strategy**
-   - Intra-layer fusion: Average of 4 encoding paths per layer
-   - Global fusion: Average of all intermediate outputs across layers
-
-4. **Dual Training Objectives**
-   - ORT (Observed Reconstruction Task): Reconstruct observed values
-   - MIT (Masked Imputation Task): Impute artificially masked values
-
-## Mathematical Formulation
-
-### Embedding Layer
-```
-Embedding(X, M) = [X; PE_temporal; ID_feature; M]
-where:
-  X ∈ ℝ^(B×T×F): Input data
-  PE_temporal ∈ ℝ^(T×pe_dim): Rotary positional encoding
-  ID_feature ∈ ℝ^(F×feat_dim): Learnable feature identity
-  M ∈ ℝ^(B×T×F): Missing mask
-```
-
-### Hybrid Encoding Per Layer
-```
-// Phase 1: Parallel Encoding
-H_time = Attention_time(X)
-H_feat = Attention_feat(X)
-
-// Phase 2: Serial Cross Encoding
-H_time→feat = Attention_feat(H_time)
-H_feat→time = Attention_time(H_feat)
-
-// Intra-layer Fusion
-X_next = Average(H_time, H_feat, H_time→feat, H_feat→time)
-```
-
-### Global Fusion
-```
-X_fused = Average(X_0, H_time^1, H_feat^1, ..., H_time^L, H_feat^L)
-where L is the number of layers
-```
-
-### Dual Loss
-```
-L_total = α·L_ORT + β·L_MIT
-where:
-  L_ORT = Loss(Reconstruction, X_observed)
-  L_MIT = Loss(Reconstruction, X_artificially_masked)
-```
+    style Input fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    style Embedding fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    style Concat fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    style Proj fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    style Layer fill:#FFEBEE,stroke:#C62828,stroke-width:2px
+    style P1 fill:#FCE4EC,stroke:#AD1457,stroke-width:1px
+    style P2 fill:#FCE4EC,stroke:#AD1457,stroke-width:1px
+    style Fusion fill:#FCE4EC,stroke:#AD1457,stroke-width:1px
+    style Global fill:#E0F7FA,stroke:#00838F,stroke-width:2px
+    style Output fill:#F1F8E9,stroke:#558B2F,stroke-width:2px
