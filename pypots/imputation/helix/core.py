@@ -1,6 +1,8 @@
 """
 The core wrapper assembles the submodules of HELIX imputation model
 and takes over the forward progress of the algorithm.
+
+Modified to save attention weights for visualization analysis.
 """
 
 # Created by MiBah Cat <milaogou@gmail.com>
@@ -119,7 +121,10 @@ class FeatureProjection(nn.Module):
 
 
 class UnifiedAttentionEncoder(nn.Module):
-    """Unified attention encoder that can be applied to any dimension."""
+    """Unified attention encoder that can be applied to any dimension.
+    
+    Modified to save attention weights for visualization.
+    """
     
     def __init__(self, d_model, n_heads, dropout=0.1):
         super().__init__()
@@ -141,9 +146,16 @@ class UnifiedAttentionEncoder(nn.Module):
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout2 = nn.Dropout(dropout)
         
+        # Storage for attention weights (for visualization)
+        self.last_attn_weights = None
+        
     def forward(self, x):
-        # Self-attention
-        attn_out, _ = self.attn(x, x, x, need_weights=False)
+        # Self-attention with weight capture
+        attn_out, attn_weights = self.attn(x, x, x, need_weights=True)
+        
+        # Save attention weights (detached to avoid affecting gradients)
+        self.last_attn_weights = attn_weights.detach()
+        
         x = self.norm1(x + self.dropout1(attn_out))
         
         # Feed-forward
@@ -154,11 +166,18 @@ class UnifiedAttentionEncoder(nn.Module):
 
 
 class DimensionalAttention(nn.Module):
-    """Apply attention along a specific dimension."""
+    """Apply attention along a specific dimension.
+    
+    Modified to provide access to attention weights.
+    """
     
     def __init__(self, d_model, n_heads, dropout=0.1):
         super().__init__()
         self.encoder = UnifiedAttentionEncoder(d_model, n_heads, dropout)
+    
+    def get_last_attn_weights(self):
+        """Get the last attention weights from the encoder."""
+        return self.encoder.last_attn_weights
     
     def forward(self, x, target_dim):
         """
@@ -200,6 +219,8 @@ class DimensionalAttention(nn.Module):
 class BackboneHELIX(nn.Module):
     """
     HELIX-2D backbone with hybrid parallel and serial cross-dimensional encoding.
+    
+    Modified to provide access to all attention weights.
     """
     
     def __init__(self, n_features, pe_dim, feature_embed_dim, d_model, n_heads, n_layers, dropout):
@@ -223,6 +244,32 @@ class BackboneHELIX(nn.Module):
         
         self.final_norm = nn.LayerNorm(d_model)
         self.output_proj = nn.Linear(d_model, 1)
+        
+        # Store number of layers for weight access
+        self.n_layers = n_layers
+    
+    def get_attention_weights(self):
+        """
+        Get all attention weights from all layers.
+        
+        Returns
+        -------
+        attention_dict : dict
+            Dictionary containing attention weights for each layer and dimension.
+            Keys: 'layer{i}_time', 'layer{i}_feature' for i in range(n_layers)
+            Values: attention weight tensors
+        """
+        attention_dict = {}
+        for i, layer_encoders in enumerate(self.encoders):
+            time_attn = layer_encoders['time'].get_last_attn_weights()
+            feature_attn = layer_encoders['feature'].get_last_attn_weights()
+            
+            if time_attn is not None:
+                attention_dict[f'layer{i}_time'] = time_attn
+            if feature_attn is not None:
+                attention_dict[f'layer{i}_feature'] = feature_attn
+        
+        return attention_dict
         
     def forward(self, X, missing_mask):
         """
@@ -275,7 +322,10 @@ class BackboneHELIX(nn.Module):
 
 
 class _HELIX(ModelCore):
-    """Core model wrapper for HELIX."""
+    """Core model wrapper for HELIX.
+    
+    Modified to provide access to attention weights.
+    """
     
     def __init__(
         self,
@@ -314,6 +364,17 @@ class _HELIX(ModelCore):
             n_layers=n_layers,
             dropout=dropout
         )
+    
+    def get_attention_weights(self):
+        """
+        Get all attention weights from the backbone.
+        
+        Returns
+        -------
+        attention_dict : dict
+            Dictionary containing attention weights for each layer and dimension.
+        """
+        return self.backbone.get_attention_weights()
     
     def forward(self, inputs: dict, calc_criterion: bool = False) -> dict:
         """
