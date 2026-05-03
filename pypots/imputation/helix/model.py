@@ -36,7 +36,7 @@ class HELIX(BaseNNImputer):
         The number of features in the time-series data sample.
 
     pe_dim :
-        The dimension of the rotary positional encoding for temporal dimension.
+        The dimension of the sinusoidal positional encoding for temporal dimension.
         Total embedding dimension will be pe_dim + feature_embed_dim + 2 (data + temporal_pe + feature_id + mask).
 
     feature_embed_dim :
