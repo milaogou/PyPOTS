@@ -1,6 +1,6 @@
 """
-The core wrapper assembles the submodules of HELIX_NoRotaryPE imputation model.
-ABLATION: Replace Rotary PE with Sinusoidal PE
+The core wrapper assembles the submodules of HELIX_NoSinusoidalPE imputation model.
+ABLATION: Replace Sinusoidal PE with Sinusoidal PE
 """
 
 # Created by MiBah Cat <milaogou@gmail.com>
@@ -52,7 +52,7 @@ class TimeSeriesEmbedding2D(nn.Module):
         self.pe_dim = pe_dim
         self.feature_embed_dim = feature_embed_dim
         
-        # ABLATION: Use Sinusoidal PE instead of Rotary PE
+        # ABLATION: Use Sinusoidal PE instead of Sinusoidal PE
         self.temporal_pe = SinusoidalPositionalEncoding(d_model=pe_dim)
         
         # Learnable identity embedding for feature dimension
@@ -196,7 +196,7 @@ class DimensionalAttention(nn.Module):
         return out
 
 
-class BackboneHELIX_NoRotaryPE(nn.Module):
+class BackboneHELIX_NoSinusoidalPE(nn.Module):
     """
     HELIX-2D backbone with Sinusoidal PE (ABLATION).
     """
@@ -273,8 +273,8 @@ class BackboneHELIX_NoRotaryPE(nn.Module):
         return output
 
 
-class _HELIX_NoRotaryPE(ModelCore):
-    """Core model wrapper for HELIX_NoRotaryPE."""
+class _HELIX_NoSinusoidalPE(ModelCore):
+    """Core model wrapper for HELIX_NoSinusoidalPE."""
     
     def __init__(
         self,
@@ -304,7 +304,7 @@ class _HELIX_NoRotaryPE(ModelCore):
         else:
             self.validation_metric = validation_metric
         
-        self.backbone = BackboneHELIX_NoRotaryPE(
+        self.backbone = BackboneHELIX_NoSinusoidalPE(
             n_features=n_features,
             pe_dim=pe_dim,
             feature_embed_dim=feature_embed_dim,

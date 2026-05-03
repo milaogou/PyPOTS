@@ -35,7 +35,7 @@ from .micn import MICN
 from .tide import TiDE
 from .grud import GRUD
 from .helix import HELIX
-from .helix_norotarype import HELIX_NoRotaryPE
+from .helix_nosinusoidalpe import HELIX_NoSinusoidalPE
 from .helix_nofeatureembed import HELIX_NoFeatureEmbed
 from .helix_nohybrid import HELIX_NoHybrid
 from .helix_nofusion import HELIX_NoFusion
@@ -91,7 +91,7 @@ __all__ = [
     "TiDE",
     "GRUD",
     "HELIX",
-    "HELIX_NoRotaryPE",
+    "HELIX_NoSinusoidalPE",
     "HELIX_NoFeatureEmbed",
     "HELIX_NoHybrid",
     "HELIX_NoFusion",

@@ -9,7 +9,7 @@ for Time Series Imputation.
 
 Notes
 -----
-HELIX employs rotary positional encoding for temporal dimension and learnable 
+HELIX employs sinusoidal positional encoding for temporal dimension and learnable 
 identity embeddings for feature dimension, combined with parallel and serial 
 cross-dimensional attention mechanism.
 

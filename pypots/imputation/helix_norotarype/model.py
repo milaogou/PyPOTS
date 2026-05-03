@@ -1,5 +1,5 @@
 """
-The implementation of HELIX_NoRotaryPE for the partially-observed time-series imputation task.
+The implementation of HELIX_NoSinusoidalPE for the partially-observed time-series imputation task.
 """
 
 # Created by MiBah Cat <milaogou@gmail.com>
@@ -11,8 +11,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from .core import _HELIX_NoRotaryPE
-from .data import DatasetForHELIX_NoRotaryPE
+from .core import _HELIX_NoSinusoidalPE
+from .data import DatasetForHELIX_NoSinusoidalPE
 from ..base import BaseNNImputer
 from ...data.checking import key_in_data_set
 from ...nn.modules.loss import Criterion, MAE, MSE
@@ -21,8 +21,8 @@ from ...optim.base import Optimizer
 from ...utils.logging import logger
 
 
-class HELIX_NoRotaryPE(BaseNNImputer):
-    """The PyTorch implementation of the HELIX_NoRotaryPE model (Ablation Study).
+class HELIX_NoSinusoidalPE(BaseNNImputer):
+    """The PyTorch implementation of the HELIX_NoSinusoidalPE model (Ablation Study).
 
     Parameters
     ----------
@@ -156,7 +156,7 @@ class HELIX_NoRotaryPE(BaseNNImputer):
 
         self._print_model_configuration()
 
-        self.model = _HELIX_NoRotaryPE(
+        self.model = _HELIX_NoSinusoidalPE(
             n_steps=n_steps,
             n_features=n_features,
             pe_dim=pe_dim,
@@ -204,7 +204,7 @@ class HELIX_NoRotaryPE(BaseNNImputer):
     def _print_model_configuration(self):
         if self.verbose:
             logger.info("=" * 60)
-            logger.info(f"HELIX_NoRotaryPE Model Configuration (Ablation):")
+            logger.info(f"HELIX_NoSinusoidalPE Model Configuration (Ablation):")
             logger.info("=" * 60)
             logger.info(f"Data dimensions:")
             logger.info(f"  - n_steps: {self.n_steps}")
@@ -258,7 +258,7 @@ class HELIX_NoRotaryPE(BaseNNImputer):
         val_set: Optional[Union[dict, str]] = None,
         file_type: str = "hdf5",
     ) -> None:
-        train_dataset = DatasetForHELIX_NoRotaryPE(
+        train_dataset = DatasetForHELIX_NoSinusoidalPE(
             train_set, return_X_ori=False, return_y=False, file_type=file_type
         )
         train_dataloader = DataLoader(
@@ -272,7 +272,7 @@ class HELIX_NoRotaryPE(BaseNNImputer):
         if val_set is not None:
             if not key_in_data_set("X_ori", val_set):
                 raise ValueError("val_set must contain 'X_ori' for model validation.")
-            val_dataset = DatasetForHELIX_NoRotaryPE(
+            val_dataset = DatasetForHELIX_NoSinusoidalPE(
                 val_set, return_X_ori=True, return_y=False, file_type=file_type
             )
             val_dataloader = DataLoader(

@@ -16,12 +16,12 @@ from ...nn.modules import ModelCore
 from ...nn.modules.loss import Criterion
 
 
-class RotaryPositionalEncoding(nn.Module):
-    """Rotary Positional Encoding for temporal dimension."""
+class SinusoidalPositionalEncoding(nn.Module):
+    """Sinusoidal Positional Encoding for temporal dimension."""
     
     def __init__(self, d_model, max_len=5000):
         super().__init__()
-        assert d_model % 2 == 0, "d_model must be even for rotary positional encoding"
+        assert d_model % 2 == 0, "d_model must be even for sinusoidal positional encoding"
         
         position = torch.arange(max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
@@ -55,8 +55,8 @@ class TimeSeriesEmbedding2D(nn.Module):
         self.pe_dim = pe_dim
         self.feature_embed_dim = feature_embed_dim
         
-        # Rotary positional encoding for temporal dimension
-        self.temporal_pe = RotaryPositionalEncoding(d_model=pe_dim)
+        # Sinusoidal positional encoding for temporal dimension
+        self.temporal_pe = SinusoidalPositionalEncoding(d_model=pe_dim)
         
         # Learnable identity embedding for feature dimension
         self.feature_id = nn.Parameter(torch.randn(n_features, feature_embed_dim))

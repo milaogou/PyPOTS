@@ -1,5 +1,5 @@
 """
-Dataset class for the imputation model HELIX_NoRotaryPE.
+Dataset class for the imputation model HELIX_NoSinusoidalPE.
 """
 
 # Created by MiBah Cat <milaogou@gmail.com>
@@ -13,8 +13,8 @@ from pygrinder import mcar, fill_and_get_mask_torch
 from ...data.dataset.base import BaseDataset
 
 
-class DatasetForHELIX_NoRotaryPE(BaseDataset):
-    """Dataset for HELIX_NoRotaryPE model that needs MIT (masked imputation task) in training.
+class DatasetForHELIX_NoSinusoidalPE(BaseDataset):
+    """Dataset for HELIX_NoSinusoidalPE model that needs MIT (masked imputation task) in training.
 
     Parameters
     ----------
