@@ -1,6 +1,6 @@
 """
 The core wrapper assembles the submodules of HELIX_NoSinusoidalPE imputation model.
-ABLATION: Replace Sinusoidal PE with Sinusoidal PE
+ABLATION: Replace Sinusoidal PE with Learnable PE
 """
 
 # Created by MiBah Cat <milaogou@gmail.com>
