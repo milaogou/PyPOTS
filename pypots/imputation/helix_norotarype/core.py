@@ -14,19 +14,12 @@ from ...nn.modules import ModelCore
 from ...nn.modules.loss import Criterion
 
 
-class SinusoidalPositionalEncoding(nn.Module):
-    """Traditional Sinusoidal Positional Encoding for temporal dimension."""
+class LearnablePositionalEncoding(nn.Module):
+    """Learnable Positional Encoding for temporal dimension (ablation variant)."""
     
     def __init__(self, d_model, max_len=5000):
         super().__init__()
-        
-        position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(max_len, d_model)
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        
-        self.register_buffer('pe', pe)
+        self.pe = nn.Embedding(max_len, d_model)
     
     def forward(self, positions):
         """
@@ -40,7 +33,7 @@ class SinusoidalPositionalEncoding(nn.Module):
         pe : tensor
             Positional encodings
         """
-        return self.pe[positions]
+        return self.pe(positions)
 
 
 class TimeSeriesEmbedding2D(nn.Module):
@@ -52,8 +45,8 @@ class TimeSeriesEmbedding2D(nn.Module):
         self.pe_dim = pe_dim
         self.feature_embed_dim = feature_embed_dim
         
-        # ABLATION: Use Sinusoidal PE instead of Sinusoidal PE
-        self.temporal_pe = SinusoidalPositionalEncoding(d_model=pe_dim)
+        # ABLATION: Use Learnable PE instead of Sinusoidal PE
+        self.temporal_pe = LearnablePositionalEncoding(d_model=pe_dim)
         
         # Learnable identity embedding for feature dimension
         self.feature_id = nn.Parameter(torch.randn(n_features, feature_embed_dim))
